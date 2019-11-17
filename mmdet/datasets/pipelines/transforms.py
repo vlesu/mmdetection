@@ -587,10 +587,11 @@ class MinIoURandomCrop(object):
         where a >= min_crop_size).
     """
 
-    def __init__(self, min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3):
+    def __init__(self, min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3, aspect_ratio_distorsion=1):
         # 1: return ori img
         self.sample_mode = (1, *min_ious, 0)
         self.min_crop_size = min_crop_size
+        self.aspect_ratio_distorsion = aspect_ratio_distorsion
 
     def __call__(self, results):
         img, boxes, labels = [
@@ -605,11 +606,15 @@ class MinIoURandomCrop(object):
             min_iou = mode
             for i in range(50):
                 new_w = random.uniform(self.min_crop_size * w, w)
-                new_h = random.uniform(self.min_crop_size * h, h)
-
-                # h / w in [0.5, 2]
-                if new_h / new_w < 0.5 or new_h / new_w > 2:
-                    continue
+                if self.aspect_ratio_distorsion==0:
+                    new_h = new_w * h / w
+                else:
+                    h_min_size = max(self.min_crop_size * h, new_w * h / ( w * (1+self.aspect_ratio_distorsion)) )
+                    h_max_size = min(h, new_w * h * (1+self.aspect_ratio_distorsion)/ w )
+                    new_h = random.uniform(h_min_size, h_max_size)
+                    # h / w in [0.5, 2]
+                    if new_h / new_w < 1/(1+self.aspect_ratio_distorsion) or new_h / new_w > 1+self.aspect_ratio_distorsion:
+                        continue # impossible!
 
                 left = random.uniform(w - new_w)
                 top = random.uniform(h - new_h)
